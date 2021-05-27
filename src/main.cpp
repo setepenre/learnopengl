@@ -122,21 +122,19 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    std::vector<std::pair<glm::vec3, Color>> cubes = {
-        {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}},
-    };
+    std::pair<glm::vec3, Color> cube  = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
     std::pair<glm::vec3, Color> light = {{1.2f, 1.0f, 2.0f}, {1.0f, 1.0f, 1.0f}};
 
-    Vertices right      = quad({0.5f, 0.0f, 0.0f}, uy, uz, 1.0f);
-    Vertices top        = quad({0.0f, 0.5f, 0.0f}, uz, ux, 1.0f);
-    Vertices front      = quad({0.0f, 0.0f, 0.5f}, ux, uy, 1.0f);
-    glm::mat4 to_left   = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f));
-    glm::mat4 to_bottom = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-    glm::mat4 to_back   = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-    Vertices cube       = right + (to_left * right) + top + (to_bottom * top) + front + (to_back * front);
+    Vertices right         = quad({0.5f, 0.0f, 0.0f}, uy, uz, 1.0f);
+    Vertices top           = quad({0.0f, 0.5f, 0.0f}, uz, ux, 1.0f);
+    Vertices front         = quad({0.0f, 0.0f, 0.5f}, ux, uy, 1.0f);
+    glm::mat4 to_left      = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f));
+    glm::mat4 to_bottom    = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+    glm::mat4 to_back      = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    Vertices cube_vertices = right + (to_left * right) + top + (to_bottom * top) + front + (to_back * front);
 
-    IndexBuffer ib        = {quad_indices(cube)};
-    VertexBuffer vb       = {std::move(cube)};
+    IndexBuffer ib        = {quad_indices(cube_vertices)};
+    VertexBuffer vb       = {std::move(cube_vertices)};
     VertexArray va        = {vb};
     VertexArray va_lights = {vb};
 
@@ -173,36 +171,32 @@ Error run(int argc, char *argv[]) {
         control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
+        auto [cube_position, cube_color]   = cube;
         auto [light_position, light_color] = light;
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        for (auto [position, color] : cubes) {
-            model = glm::translate(glm::mat4(1.0f), position);
-            if (error = draw(Primitive::TRIANGLES,
-                    va,
-                    ib,
-                    shader,
-                    {
-                        {"u_model", model},
-                        {"u_view", camera.view()},
-                        {"u_projection", projection},
-                        {"u_object_color", color},
-                        {"u_light_color", light_color},
-                    });
-                error.has_value()) {
-                return wrap(error);
-            }
+        if (error = draw(Primitive::TRIANGLES,
+                va,
+                ib,
+                shader,
+                {
+                    {"u_model", glm::translate(glm::mat4(1.0f), cube_position)},
+                    {"u_view", camera.view()},
+                    {"u_projection", projection},
+                    {"u_object_color", cube_color},
+                    {"u_light_color", light_color},
+                });
+            error.has_value()) {
+            return wrap(error);
         }
 
-        model = glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f));
         if (error = draw(Primitive::TRIANGLES,
                 va_lights,
                 ib,
                 shader_light,
                 {
-                    {"u_model", model},
+                    {"u_model", glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f))},
                     {"u_view", camera.view()},
                     {"u_projection", projection},
                     {"u_light_color", light_color},
