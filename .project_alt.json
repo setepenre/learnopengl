@@ -1,0 +1,14 @@
+{
+  "src/*.cpp": {
+    "alternate": "src/{}.hpp"
+  },
+  "src/*.hpp": {
+    "alternate": "src/{}.cpp"
+  },
+  "src/glad/*.c": {
+    "alternate": "include/glad/{}.h"
+  },
+  "include/glad/*.h": {
+    "alternate": "src/glad/{}.c"
+  }
+}

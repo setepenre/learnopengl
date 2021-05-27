@@ -1,0 +1,9 @@
+-xc++
+-std=c++2a
+-Wextra
+-Wall
+-Wno-pragma-once-outside-header
+-Wno-unknown-warning-option
+-Iinclude
+-Iinclude/glad
+-I/usr/lib/clang/11.1.0/include
