@@ -35,14 +35,6 @@ void Control::process_input(GLFWwindow *window) {
         m_pause = ! m_pause;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        m_alpha = std::min(1.0f, m_alpha + 0.01f);
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        m_alpha = std::max(0.0f, m_alpha - 0.01f);
-    }
-
     glm::vec3 acc = {0.0f, 0.0f, 0.0f};
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
         acc += m_camera.front();

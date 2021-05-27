@@ -130,6 +130,15 @@ Error Shader::set_uniform1f(const std::string &name, float value) {
     return {};
 }
 
+Error Shader::set_uniform3f(const std::string &name, float r, float g, float b) {
+    auto [location, error] = get_uniform_location(name);
+    if (error.has_value()) {
+        return wrap(error);
+    }
+    glUniform3f(location, r, g, b);
+    return {};
+}
+
 Error Shader::set_uniform4f(const std::string &name, float r, float g, float b, float a) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {

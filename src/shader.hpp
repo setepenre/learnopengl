@@ -18,6 +18,7 @@ class Shader {
 
     Error set_uniform1i(const std::string &name, int);
     Error set_uniform1f(const std::string &name, float);
+    Error set_uniform3f(const std::string &name, float, float, float);
     Error set_uniform4f(const std::string &name, float, float, float, float);
     Error set_uniformmat4f(const std::string &name, const glm::mat4 &matrix);
 

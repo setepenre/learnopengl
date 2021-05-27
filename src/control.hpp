@@ -21,7 +21,6 @@ class Control {
     void movement_direction(glm::vec3 direction) { m_movement_direction = direction; }
 
     bool pause() { return m_pause; }
-    float alpha() { return m_alpha; }
     const glm::vec3 &movement_direction() { return m_movement_direction; }
 
     void process_input(GLFWwindow *window);
@@ -34,8 +33,6 @@ class Control {
   private:
     bool m_pause {false};
     bool m_first_mouse_event {true};
-
-    float m_alpha = 0.3f;
 
     glm::vec3 m_movement_direction {0.0f, 0.0f, 0.0f};
 

@@ -106,18 +106,10 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    std::vector<glm::vec3> cubes = {
-        {0.0f, 0.0f, 0.0f},
-        {2.0f, 5.0f, -15.0f},
-        {-1.5f, -2.2f, -2.5f},
-        {-3.8f, -2.0f, -12.3f},
-        {2.4f, -0.4f, -3.5f},
-        {-1.7f, 3.0f, -7.5f},
-        {1.3f, -2.0f, -2.5f},
-        {1.5f, 2.0f, -2.5f},
-        {1.5f, 0.2f, -1.5f},
-        {-1.3f, 1.0f, -1.5f},
+    std::vector<std::pair<glm::vec3, Color>> cubes = {
+        {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}},
     };
+    std::pair<glm::vec3, Color> light = {{1.2f, 1.0f, 2.0f}, {1.0f, 1.0f, 1.0f}};
 
     Vertices right      = quad({0.5f, 0.0f, 0.0f}, uy, uz, 1.0f);
     Vertices top        = quad({0.0f, 0.5f, 0.0f}, uz, ux, 1.0f);
@@ -127,9 +119,10 @@ Error run(int argc, char *argv[]) {
     glm::mat4 to_back   = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
     Vertices cube       = right + (to_left * right) + top + (to_bottom * top) + front + (to_back * front);
 
-    IndexBuffer ib  = {quad_indices(cube)};
-    VertexBuffer vb = {std::move(cube)};
-    VertexArray va  = {vb};
+    IndexBuffer ib        = {quad_indices(cube)};
+    VertexBuffer vb       = {std::move(cube)};
+    VertexArray va        = {vb};
+    VertexArray va_lights = {vb};
 
     glEnable(GL_LINE_SMOOTH);
     Vertices lines        = line(origin, ux, 1.0f, ux) + line(origin, uy, 1.0f, uy) + line(origin, uz, 1.0f, uz);
@@ -142,73 +135,37 @@ Error run(int argc, char *argv[]) {
         return wrap(shader_error);
     }
 
+    auto [shader_light, shader_light_error] = Shader::from_files(cwd / "res/shader.vert", cwd / "res/light.frag");
+    if (shader_light_error.has_value()) {
+        return wrap(shader_light_error);
+    }
+
     auto [shader_lines, shader_lines_error] = Shader::from_files(cwd / "res/shader.vert", cwd / "res/lines.frag");
     if (shader_lines_error.has_value()) {
         return wrap(shader_lines_error);
     }
 
-    auto [container_texture, container_error] = Texture::from_file(cwd / "res/container.jpg",
-        GL_RGB,
-        GL_TEXTURE0,
-        {
-            {GL_TEXTURE_WRAP_S, GL_REPEAT},
-            {GL_TEXTURE_WRAP_T, GL_REPEAT},
-            {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
-            {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
-        });
-    if (container_error.has_value()) {
-        return wrap(container_error);
-    }
-
-    auto [awesome_texture, awesome_error] = Texture::from_file(cwd / "res/awesomeface.png",
-        GL_RGBA,
-        GL_TEXTURE1,
-        {
-            {GL_TEXTURE_WRAP_S, GL_REPEAT},
-            {GL_TEXTURE_WRAP_T, GL_REPEAT},
-            {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
-            {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
-        });
-    if (awesome_error.has_value()) {
-        return wrap(awesome_error);
-    }
-
-    shader.bind();
-    if (error = shader.set_uniform1i("u_texture0", container_texture.slot() - GL_TEXTURE0); error.has_value()) {
-        return wrap(error);
-    }
-
-    if (error = shader.set_uniform1i("u_texture1", awesome_texture.slot() - GL_TEXTURE0); error.has_value()) {
-        return wrap(error);
-    }
-
-    // float t = 1.0f;
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (! glfwWindowShouldClose(window)) {
         control.process_input(window);
 
-        // auto [r, g, b] = rgb(t = ! pause ? 1.0f + glfwGetTime() : t);
         float now = glfwGetTime();
         delta_t   = now - previous;
         previous  = now;
 
         camera.position(camera.position() + 5.0f * control.movement_direction() * delta_t);
         control.movement_direction({0.0f, 0.0f, 0.0f});
+        glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
+
+        auto [light_position, light_color] = light;
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
-
-        container_texture.bind();
-        awesome_texture.bind();
         va.bind();
         ib.bind();
         shader.bind();
 
-        if (error = shader.set_uniform1f("u_alpha", control.alpha()); error.has_value()) {
-            return wrap(error);
-        }
-
+        glm::mat4 model = glm::mat4(1.0f);
         if (error = shader.set_uniformmat4f("u_view", camera.view()); error.has_value()) {
             return wrap(error);
         }
@@ -217,22 +174,57 @@ Error run(int argc, char *argv[]) {
             return wrap(error);
         }
 
-        for (size_t i = 0; i < cubes.size(); ++i) {
-            glm::mat4 model = glm::mat4(1.0f);
-            model           = glm::translate(model, cubes[i]);
-            model           = glm::rotate(model, i * w / 8.0f, glm::vec3(1.0f, 0.3f, 0.5f));
+        if (error = shader.set_uniform3f("u_light_color", light_color.r, light_color.g, light_color.b);
+            error.has_value()) {
+            return wrap(error);
+        }
+
+        for (auto [position, color] : cubes) {
+            model = glm::translate(glm::mat4(1.0f), position);
 
             if (error = shader.set_uniformmat4f("u_model", model); error.has_value()) {
+                return wrap(error);
+            }
+
+            if (error = shader.set_uniform3f("u_object_color", color.r, color.g, color.b); error.has_value()) {
                 return wrap(error);
             }
             glDrawElements(GL_TRIANGLES, ib.count(), GL_UNSIGNED_INT, nullptr);
         }
 
+        va_lights.bind();
+        ib.bind();
+        shader_light.bind();
+
+        model = glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f));
+        if (error = shader_light.set_uniformmat4f("u_model", model); error.has_value()) {
+            return wrap(error);
+        }
+
+        if (error = shader_light.set_uniformmat4f("u_view", camera.view()); error.has_value()) {
+            return wrap(error);
+        }
+
+        if (error = shader_light.set_uniformmat4f("u_projection", projection); error.has_value()) {
+            return wrap(error);
+        }
+
+        if (error = shader_light.set_uniform3f("u_light_color", light_color.r, light_color.g, light_color.b);
+            error.has_value()) {
+            return wrap(error);
+        }
+
+        if (error = shader_light.set_uniform3f("u_object_color", light_color.r, light_color.g, light_color.b);
+            error.has_value()) {
+            return wrap(error);
+        }
+        glDrawElements(GL_TRIANGLES, ib.count(), GL_UNSIGNED_INT, nullptr);
+
         va_lines.bind();
         ib_lines.bind();
         shader_lines.bind();
-        glm::mat4 model = glm::mat4(1.0f);
 
+        model = glm::mat4(1.0f);
         if (error = shader_lines.set_uniformmat4f("u_model", model); error.has_value()) {
             return wrap(error);
         }
