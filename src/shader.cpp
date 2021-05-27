@@ -1,6 +1,5 @@
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 #include <glad/glad.h>
 
@@ -112,7 +111,35 @@ Shader::~Shader() {
 void Shader::bind() const { glUseProgram(m_ID); }
 void Shader::unbind() const { glUseProgram(0); }
 
-Error Shader::set_uniform1i(const std::string &name, int value) {
+Error Shader::set_uniforms(const std::vector<Uniform> &uniforms) {
+    for (auto [name, value] : uniforms) {
+        Error error = {};
+        if (auto valueptr = std::get_if<int>(&value)) {
+            error = set_uniform(name, *valueptr);
+        } else if (auto valueptr = std::get_if<float>(&value)) {
+            error = set_uniform(name, *valueptr);
+        } else if (auto valueptr = std::get_if<f3>(&value)) {
+            auto [x, y, z] = *valueptr;
+            error          = set_uniform(name, x, y, z);
+        } else if (auto valueptr = std::get_if<f4>(&value)) {
+            auto [x, y, z, w] = *valueptr;
+            error             = set_uniform(name, x, y, z, w);
+        } else if (auto valueptr = std::get_if<glm::vec3>(&value)) {
+            error = set_uniform(name, *valueptr);
+        } else if (auto valueptr = std::get_if<glm::mat4>(&value)) {
+            error = set_uniform(name, *valueptr);
+        } else {
+            error = "uniform '" + name + "' type unknown";
+        }
+
+        if (error.has_value()) {
+            return wrap(error);
+        }
+    }
+    return {};
+}
+
+Error Shader::set_uniform(const std::string &name, int value) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {
         return wrap(error);
@@ -121,7 +148,7 @@ Error Shader::set_uniform1i(const std::string &name, int value) {
     return {};
 }
 
-Error Shader::set_uniform1f(const std::string &name, float value) {
+Error Shader::set_uniform(const std::string &name, float value) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {
         return wrap(error);
@@ -130,7 +157,7 @@ Error Shader::set_uniform1f(const std::string &name, float value) {
     return {};
 }
 
-Error Shader::set_uniform3f(const std::string &name, float r, float g, float b) {
+Error Shader::set_uniform(const std::string &name, float r, float g, float b) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {
         return wrap(error);
@@ -139,7 +166,7 @@ Error Shader::set_uniform3f(const std::string &name, float r, float g, float b) 
     return {};
 }
 
-Error Shader::set_uniform4f(const std::string &name, float r, float g, float b, float a) {
+Error Shader::set_uniform(const std::string &name, float r, float g, float b, float a) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {
         return wrap(error);
@@ -148,7 +175,11 @@ Error Shader::set_uniform4f(const std::string &name, float r, float g, float b, 
     return {};
 }
 
-Error Shader::set_uniformmat4f(const std::string &name, const glm::mat4 &matrix) {
+Error Shader::set_uniform(const std::string &name, const glm::vec3 &vector) {
+    return set_uniform(name, vector.r, vector.g, vector.b);
+}
+
+Error Shader::set_uniform(const std::string &name, const glm::mat4 &matrix) {
     auto [location, error] = get_uniform_location(name);
     if (error.has_value()) {
         return wrap(error);

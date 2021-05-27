@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -53,6 +54,21 @@ std::pair<std::tuple<int, int>, Error> from_args(int argc, char *argv[]) {
         }
     }
     return {{1280, 720}, {}};
+}
+
+enum Primitive { LINES = GL_LINES, TRIANGLES = GL_TRIANGLES };
+Error draw(Primitive primitive, const VertexArray &va, const IndexBuffer &ib, Shader &shader,
+    const std::vector<Uniform> &uniforms) {
+    va.bind();
+    ib.bind();
+    shader.bind();
+
+    if (Error error = shader.set_uniforms(uniforms); error.has_value()) {
+        return error;
+    }
+
+    glDrawElements(primitive, ib.count(), GL_UNSIGNED_INT, nullptr);
+    return {};
 }
 
 Error run(int argc, char *argv[]) {
@@ -161,82 +177,53 @@ Error run(int argc, char *argv[]) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        va.bind();
-        ib.bind();
-        shader.bind();
-
         glm::mat4 model = glm::mat4(1.0f);
-        if (error = shader.set_uniformmat4f("u_view", camera.view()); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader.set_uniformmat4f("u_projection", projection); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader.set_uniform3f("u_light_color", light_color.r, light_color.g, light_color.b);
-            error.has_value()) {
-            return wrap(error);
-        }
-
         for (auto [position, color] : cubes) {
             model = glm::translate(glm::mat4(1.0f), position);
-
-            if (error = shader.set_uniformmat4f("u_model", model); error.has_value()) {
+            if (error = draw(Primitive::TRIANGLES,
+                    va,
+                    ib,
+                    shader,
+                    {
+                        {"u_model", model},
+                        {"u_view", camera.view()},
+                        {"u_projection", projection},
+                        {"u_object_color", color},
+                        {"u_light_color", light_color},
+                    });
+                error.has_value()) {
                 return wrap(error);
             }
-
-            if (error = shader.set_uniform3f("u_object_color", color.r, color.g, color.b); error.has_value()) {
-                return wrap(error);
-            }
-            glDrawElements(GL_TRIANGLES, ib.count(), GL_UNSIGNED_INT, nullptr);
         }
-
-        va_lights.bind();
-        ib.bind();
-        shader_light.bind();
 
         model = glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f));
-        if (error = shader_light.set_uniformmat4f("u_model", model); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader_light.set_uniformmat4f("u_view", camera.view()); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader_light.set_uniformmat4f("u_projection", projection); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader_light.set_uniform3f("u_light_color", light_color.r, light_color.g, light_color.b);
+        if (error = draw(Primitive::TRIANGLES,
+                va_lights,
+                ib,
+                shader_light,
+                {
+                    {"u_model", model},
+                    {"u_view", camera.view()},
+                    {"u_projection", projection},
+                    {"u_light_color", light_color},
+                    {"u_object_color", light_color},
+                });
             error.has_value()) {
             return wrap(error);
         }
 
-        if (error = shader_light.set_uniform3f("u_object_color", light_color.r, light_color.g, light_color.b);
+        if (error = draw(Primitive::LINES,
+                va_lines,
+                ib_lines,
+                shader_lines,
+                {
+                    {"u_model", glm::mat4(1.0f)},
+                    {"u_view", camera.view()},
+                    {"u_projection", projection},
+                });
             error.has_value()) {
             return wrap(error);
         }
-        glDrawElements(GL_TRIANGLES, ib.count(), GL_UNSIGNED_INT, nullptr);
-
-        va_lines.bind();
-        ib_lines.bind();
-        shader_lines.bind();
-
-        model = glm::mat4(1.0f);
-        if (error = shader_lines.set_uniformmat4f("u_model", model); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader_lines.set_uniformmat4f("u_view", camera.view()); error.has_value()) {
-            return wrap(error);
-        }
-
-        if (error = shader_lines.set_uniformmat4f("u_projection", projection); error.has_value()) {
-            return wrap(error);
-        }
-        glDrawElements(GL_LINES, ib_lines.count(), GL_UNSIGNED_INT, nullptr);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

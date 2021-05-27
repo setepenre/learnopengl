@@ -2,10 +2,16 @@
 
 #include <string>
 #include <unordered_map>
+#include <variant>
+#include <vector>
 
 #include <glm/glm.hpp>
 
 #include "error.hpp"
+
+using f3      = std::tuple<float, float, float>;
+using f4      = std::tuple<float, float, float, float>;
+using Uniform = std::pair<std::string, std::variant<int, float, f3, f4, glm::vec3, glm::mat4>>;
 
 class Shader {
   public:
@@ -16,11 +22,14 @@ class Shader {
     void bind() const;
     void unbind() const;
 
-    Error set_uniform1i(const std::string &name, int);
-    Error set_uniform1f(const std::string &name, float);
-    Error set_uniform3f(const std::string &name, float, float, float);
-    Error set_uniform4f(const std::string &name, float, float, float, float);
-    Error set_uniformmat4f(const std::string &name, const glm::mat4 &matrix);
+    Error set_uniforms(const std::vector<Uniform> &uniforms);
+
+    Error set_uniform(const std::string &name, int);
+    Error set_uniform(const std::string &name, float);
+    Error set_uniform(const std::string &name, float, float, float);
+    Error set_uniform(const std::string &name, float, float, float, float);
+    Error set_uniform(const std::string &name, const glm::vec3 &vector);
+    Error set_uniform(const std::string &name, const glm::mat4 &matrix);
 
     static std::pair<Shader, Error> from_files(const std::string &vertex, const std::string &fragment);
 
