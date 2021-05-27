@@ -33,11 +33,12 @@ Vertices quad(glm::vec3 center, glm::vec3 a, glm::vec3 b, float size, const std:
 
 Vertices quad(glm::vec3 center, glm::vec3 a, glm::vec3 b, float size, const std::array<Color, 4> &colors,
     const std::array<TexCoord, 4> &tex_coords) {
+    glm::vec3 normal  = glm::normalize(glm::cross(a, b));
     Vertices vertices = {
-        {center + (size / 2.0f) * (+a + b), colors[0], tex_coords[0]},
-        {center + (size / 2.0f) * (-a + b), colors[1], tex_coords[1]},
-        {center + (size / 2.0f) * (-a - b), colors[2], tex_coords[2]},
-        {center + (size / 2.0f) * (+a - b), colors[3], tex_coords[3]},
+        {center + (size / 2.0f) * (+a + b), colors[0], tex_coords[0], normal},
+        {center + (size / 2.0f) * (-a + b), colors[1], tex_coords[1], normal},
+        {center + (size / 2.0f) * (-a - b), colors[2], tex_coords[2], normal},
+        {center + (size / 2.0f) * (+a - b), colors[3], tex_coords[3], normal},
     };
     return vertices;
 }

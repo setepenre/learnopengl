@@ -5,14 +5,15 @@
 #include <glad/glad.h>
 
 Vertex operator*(const glm::mat4 &matrix, const Vertex &vertex) {
-    return {matrix * glm::vec4(vertex.r, 1.0f), vertex.color, vertex.t};
+    return {matrix * glm::vec4(vertex.r, 1.0f), vertex.color, vertex.t, matrix * glm::vec4(vertex.normal, 1.0f)};
 }
 
 std::vector<VertexLayout> vertex_layouts() {
     VertexLayout position  = {3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *) offsetof(Vertex, r)};
     VertexLayout color     = {3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *) offsetof(Vertex, color)};
     VertexLayout tex_coord = {2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *) offsetof(Vertex, t)};
-    return {{position, color, tex_coord}};
+    VertexLayout normal    = {3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *) offsetof(Vertex, normal)};
+    return {{position, color, tex_coord, normal}};
 }
 
 Vertices operator+(const Vertices &left, const Vertices &right) {

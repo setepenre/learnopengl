@@ -10,6 +10,7 @@ struct Vertex {
     glm::vec3 r {0.0f, 0.0f, 0.0f};
     glm::vec3 color {0.0f, 0.0f, 0.0f};
     glm::vec2 t {0.0f, 0.0f};
+    glm::vec3 normal {0.0f, 0.0f, 0.0f};
 };
 
 Vertex operator*(const glm::mat4 &matrix, const Vertex &vertex);

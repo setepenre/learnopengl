@@ -26,9 +26,11 @@
 #include "texture.hpp"
 #include "vertex_array.hpp"
 
+constexpr static float pi = glm::pi<float>();
+
 static float delta_t  = 0.0f;
 static float previous = 0.0f;
-static Camera camera  = {glm::pi<float>() / 2.0f, {0.0f, 0.0f, 3.0f}, {0.0f, -glm::pi<float>() / 2.0f, 0.0f}};
+static Camera camera  = {pi / 2.0f, {1.0f, 3.0f, 1.0f}, {-pi / 3.0f, 3.0f * -pi / 4.0f, 0.0f}};
 
 static Control *controlptr = Control::instance(camera);
 static Control &control    = *controlptr;
@@ -173,19 +175,24 @@ Error run(int argc, char *argv[]) {
 
         auto [cube_position, cube_color]   = cube;
         auto [light_position, light_color] = light;
+        light_position                     = orbit(2.0f, 0.005f * now);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), cube_position);
         if (error = draw(Primitive::TRIANGLES,
                 va,
                 ib,
                 shader,
                 {
-                    {"u_model", glm::translate(glm::mat4(1.0f), cube_position)},
+                    {"u_model", model},
+                    {"u_ti_model", glm::transpose(glm::inverse(model))},
                     {"u_view", camera.view()},
                     {"u_projection", projection},
                     {"u_object_color", cube_color},
+                    {"u_light_position", light_position},
                     {"u_light_color", light_color},
+                    {"u_view_position", camera.position()},
                 });
             error.has_value()) {
             return wrap(error);
