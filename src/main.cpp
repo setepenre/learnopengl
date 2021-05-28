@@ -124,21 +124,14 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    std::pair<glm::vec3, Color> cube  = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
-    std::pair<glm::vec3, Color> light = {{1.2f, 1.0f, 2.0f}, {1.0f, 1.0f, 1.0f}};
+    std::pair<glm::vec3, Color> cube_data  = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
+    std::pair<glm::vec3, Color> light_data = {{1.2f, 1.0f, 2.0f}, {1.0f, 1.0f, 1.0f}};
 
-    Vertices right         = quad({0.5f, 0.0f, 0.0f}, uy, uz, 1.0f);
-    Vertices top           = quad({0.0f, 0.5f, 0.0f}, uz, ux, 1.0f);
-    Vertices front         = quad({0.0f, 0.0f, 0.5f}, ux, uy, 1.0f);
-    glm::mat4 to_left      = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f));
-    glm::mat4 to_bottom    = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-    glm::mat4 to_back      = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-    Vertices cube_vertices = right + (to_left * right) + top + (to_bottom * top) + front + (to_back * front);
-
-    IndexBuffer ib        = {quad_indices(cube_vertices)};
-    VertexBuffer vb       = {std::move(cube_vertices)};
-    VertexArray va        = {vb};
-    VertexArray va_lights = {vb};
+    Vertices cube_vertices = cube(cube_data.first, ux, uy, uz, 1.0f);
+    IndexBuffer ib         = {quad_indices(cube_vertices)};
+    VertexBuffer vb        = {std::move(cube_vertices)};
+    VertexArray va         = {vb};
+    VertexArray va_lights  = {vb};
 
     glEnable(GL_LINE_SMOOTH);
     Vertices lines        = line(origin, ux, 1.0f, ux) + line(origin, uy, 1.0f, uy) + line(origin, uz, 1.0f, uz);
@@ -173,9 +166,9 @@ Error run(int argc, char *argv[]) {
         control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
-        auto [cube_position, cube_color]   = cube;
-        auto [light_position, light_color] = light;
-        light_position                     = orbit(2.0f, 0.005f * now);
+        auto [cube_position, cube_color]   = cube_data;
+        auto [light_position, light_color] = light_data;
+        light_position                     = orbit(2.0f, 0.01f * now);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
