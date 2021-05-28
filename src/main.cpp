@@ -124,8 +124,7 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    std::pair<glm::vec3, Color> cube_data  = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
-    std::pair<glm::vec3, Color> light_data = {{1.2f, 1.0f, 2.0f}, {1.0f, 1.0f, 1.0f}};
+    std::pair<glm::vec3, Color> cube_data = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
 
     Vertices cube_vertices = cube(cube_data.first, ux, uy, uz, 1.0f);
     IndexBuffer ib         = {quad_indices(cube_vertices)};
@@ -166,9 +165,8 @@ Error run(int argc, char *argv[]) {
         control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
-        auto [cube_position, cube_color]   = cube_data;
-        auto [light_position, light_color] = light_data;
-        light_position                     = orbit(2.0f, 0.01f * now);
+        auto [cube_position, cube_color] = cube_data;
+        glm::vec3 light_position {orbit(3.0f, 0.1f * now)}, light_color {1.0f, 1.0f, 1.0f};
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -183,9 +181,17 @@ Error run(int argc, char *argv[]) {
                     {"u_view", camera.view()},
                     {"u_projection", projection},
                     {"u_object_color", cube_color},
-                    {"u_light_position", light_position},
-                    {"u_light_color", light_color},
                     {"u_view_position", camera.position()},
+
+                    {"u_material.ambient", cube_color},
+                    {"u_material.diffuse", cube_color},
+                    {"u_material.specular", glm::vec3(0.5f, 0.5f, 0.5f)},
+                    {"u_material.shininess", 32.0f},
+
+                    {"u_light.position", light_position},
+                    {"u_light.ambient", 0.2f * light_color},
+                    {"u_light.diffuse", 0.5f * light_color},
+                    {"u_light.specular", light_color},
                 });
             error.has_value()) {
             return wrap(error);
