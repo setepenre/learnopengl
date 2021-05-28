@@ -4,8 +4,9 @@ Repo following along https://learnopengl.com OpenGL tutorial
 
 ## prerequisites
 
-- GLFW
-- OpenGL
+- OpenGL 4.6.0
+- GLFW 3.3
+- glm 0.9.9.8
 
 ## build
 
