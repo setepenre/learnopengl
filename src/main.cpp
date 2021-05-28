@@ -61,15 +61,23 @@ std::pair<std::tuple<int, int>, Error> from_args(int argc, char *argv[]) {
 
 enum Primitive { LINES = GL_LINES, TRIANGLES = GL_TRIANGLES };
 Error draw(Primitive primitive, const VertexArray &va, const IndexBuffer &ib, Shader &shader,
-    const std::vector<Uniform> &uniforms, const std::optional<std::vector<Texture>> &textures = {}) {
+    const std::vector<Uniform> &uniforms,
+    const std::optional<std::vector<std::pair<std::string, Texture>>> &textures = {}) {
     va.bind();
     ib.bind();
+    shader.bind();
+
     if (textures.has_value()) {
-        for (const auto &texture : textures.value()) {
+        std::vector<Uniform> samplers = {};
+        for (const auto &[name, texture] : textures.value()) {
             texture.bind();
+            samplers.push_back({name, texture.slot()});
+        }
+
+        if (Error error = shader.set_uniforms(samplers); error.has_value()) {
+            return error;
         }
     }
-    shader.bind();
 
     if (Error error = shader.set_uniforms(uniforms); error.has_value()) {
         return error;
@@ -184,6 +192,18 @@ Error run(int argc, char *argv[]) {
         return wrap(texture_specular_error);
     }
 
+    auto [texture_emissive, texture_emissive_error] = Texture::from_file(cwd / "res/matrix.jpg",
+        GL_TEXTURE2,
+        {
+            {GL_TEXTURE_WRAP_S, GL_REPEAT},
+            {GL_TEXTURE_WRAP_T, GL_REPEAT},
+            {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
+            {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
+        });
+    if (texture_emissive_error.has_value()) {
+        return wrap(texture_emissive_error);
+    }
+
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (! glfwWindowShouldClose(window)) {
         control.process_input(window);
@@ -212,16 +232,20 @@ Error run(int argc, char *argv[]) {
                     {"u_projection", projection},
                     {"u_view_position", camera.position()},
 
-                    {"u_material.diffuse", texture_container.slot()},
-                    {"u_material.specular", texture_specular.slot()},
                     {"u_material.shininess", 32.0f},
 
                     {"u_light.position", light_position},
                     {"u_light.ambient", 0.2f * light_color},
                     {"u_light.diffuse", 0.5f * light_color},
                     {"u_light.specular", light_color},
+
+                    {"u_tex_t_offset", 0.1f * now},
                 },
-                {{texture_container, texture_specular}});
+                {{
+                    {"u_material.diffuse", texture_container},
+                    {"u_material.specular", texture_specular},
+                    {"u_material.emissive", texture_emissive},
+                }});
             error.has_value()) {
             return wrap(error);
         }
