@@ -12,11 +12,13 @@ uniform mat4 u_projection;
 
 out vec3 v_color;
 out vec3 v_position;
+out vec2 v_tex;
 out vec3 v_normal;
 
 void main() {
     v_position = vec3(u_model * vec4(a_position, 1.0));
     v_color    = a_color;
+    v_tex      = a_tex;
     v_normal   = mat3(u_ti_model) * a_normal;
 
     gl_Position = u_projection * u_view * vec4(v_position, 1.0);

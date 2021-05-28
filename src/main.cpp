@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -60,9 +61,14 @@ std::pair<std::tuple<int, int>, Error> from_args(int argc, char *argv[]) {
 
 enum Primitive { LINES = GL_LINES, TRIANGLES = GL_TRIANGLES };
 Error draw(Primitive primitive, const VertexArray &va, const IndexBuffer &ib, Shader &shader,
-    const std::vector<Uniform> &uniforms) {
+    const std::vector<Uniform> &uniforms, const std::optional<std::vector<Texture>> &textures = {}) {
     va.bind();
     ib.bind();
+    if (textures.has_value()) {
+        for (const auto &texture : textures.value()) {
+            texture.bind();
+        }
+    }
     shader.bind();
 
     if (Error error = shader.set_uniforms(uniforms); error.has_value()) {
@@ -124,9 +130,9 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    std::pair<glm::vec3, Color> cube_data = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.31f}};
+    glm::vec3 cube_position = {0.0f, 0.0f, 0.0f};
 
-    Vertices cube_vertices = cube(cube_data.first, ux, uy, uz, 1.0f);
+    Vertices cube_vertices = cube(cube_position, ux, uy, uz, 1.0f);
     IndexBuffer ib         = {quad_indices(cube_vertices)};
     VertexBuffer vb        = {std::move(cube_vertices)};
     VertexArray va         = {vb};
@@ -153,6 +159,31 @@ Error run(int argc, char *argv[]) {
         return wrap(shader_lines_error);
     }
 
+    auto [texture_container, texture_container_error] = Texture::from_file(cwd / "res/woodcontainer_steelborder.png",
+        GL_TEXTURE0,
+        {
+            {GL_TEXTURE_WRAP_S, GL_REPEAT},
+            {GL_TEXTURE_WRAP_T, GL_REPEAT},
+            {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
+            {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
+        });
+    if (texture_container_error.has_value()) {
+        return wrap(texture_container_error);
+    }
+
+    auto [texture_specular, texture_specular_error] =
+        Texture::from_file(cwd / "res/woodcontainer_steelborder_specular.png",
+            GL_TEXTURE1,
+            {
+                {GL_TEXTURE_WRAP_S, GL_REPEAT},
+                {GL_TEXTURE_WRAP_T, GL_REPEAT},
+                {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
+                {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
+            });
+    if (texture_specular_error.has_value()) {
+        return wrap(texture_specular_error);
+    }
+
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (! glfwWindowShouldClose(window)) {
         control.process_input(window);
@@ -165,7 +196,6 @@ Error run(int argc, char *argv[]) {
         control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
-        auto [cube_position, cube_color] = cube_data;
         glm::vec3 light_position {orbit(3.0f, 0.1f * now)}, light_color {1.0f, 1.0f, 1.0f};
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -180,19 +210,18 @@ Error run(int argc, char *argv[]) {
                     {"u_ti_model", glm::transpose(glm::inverse(model))},
                     {"u_view", camera.view()},
                     {"u_projection", projection},
-                    {"u_object_color", cube_color},
                     {"u_view_position", camera.position()},
 
-                    {"u_material.ambient", cube_color},
-                    {"u_material.diffuse", cube_color},
-                    {"u_material.specular", glm::vec3(0.5f, 0.5f, 0.5f)},
+                    {"u_material.diffuse", texture_container.slot()},
+                    {"u_material.specular", texture_specular.slot()},
                     {"u_material.shininess", 32.0f},
 
                     {"u_light.position", light_position},
                     {"u_light.ambient", 0.2f * light_color},
                     {"u_light.diffuse", 0.5f * light_color},
                     {"u_light.specular", light_color},
-                });
+                },
+                {{texture_container, texture_specular}});
             error.has_value()) {
             return wrap(error);
         }

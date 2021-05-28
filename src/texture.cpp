@@ -1,5 +1,7 @@
 #include "texture.hpp"
 
+#include <map>
+
 #include <glad/glad.h>
 
 #pragma GCC diagnostic push
@@ -10,8 +12,9 @@
 #include <stb_image.h>
 #pragma GCC diagnostic pop
 
-std::pair<Texture, Error> Texture::from_file(const std::string &path, int format, int texture_slot,
-    const TextureParameters &parameters, bool gen_mipmap, bool flip_y) {
+static std::map<int, int> n_channels_to_format = {{1, GL_RED}, {3, GL_RGB}, {4, GL_RGBA}};
+std::pair<Texture, Error> Texture::from_file(
+    const std::string &path, int texture_slot, const TextureParameters &parameters, bool gen_mipmap, bool flip_y) {
     stbi_set_flip_vertically_on_load(flip_y);
 
     int width {0}, height {0}, n_channels {0};
@@ -30,6 +33,7 @@ std::pair<Texture, Error> Texture::from_file(const std::string &path, int format
         glTexParameteri(GL_TEXTURE_2D, parameter, value);
     }
 
+    auto format = n_channels_to_format[n_channels];
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
 
     if (gen_mipmap) {
