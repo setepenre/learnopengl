@@ -11,7 +11,7 @@
 
 using f3      = std::tuple<float, float, float>;
 using f4      = std::tuple<float, float, float, float>;
-using Uniform = std::pair<std::string, std::variant<int, float, f3, f4, glm::vec3, glm::mat4>>;
+using Uniform = std::pair<std::string, std::variant<int, float, f3, f4, glm::vec3, glm::vec4, glm::mat4>>;
 
 class Shader {
   public:
@@ -29,6 +29,7 @@ class Shader {
     Error set_uniform(const std::string &name, float, float, float);
     Error set_uniform(const std::string &name, float, float, float, float);
     Error set_uniform(const std::string &name, const glm::vec3 &vector);
+    Error set_uniform(const std::string &name, const glm::vec4 &vector);
     Error set_uniform(const std::string &name, const glm::mat4 &matrix);
 
     static std::pair<Shader, Error> from_files(const std::string &vertex, const std::string &fragment);

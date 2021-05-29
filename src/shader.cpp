@@ -126,6 +126,8 @@ Error Shader::set_uniforms(const std::vector<Uniform> &uniforms) {
             error             = set_uniform(name, x, y, z, w);
         } else if (auto valueptr = std::get_if<glm::vec3>(&value)) {
             error = set_uniform(name, *valueptr);
+        } else if (auto valueptr = std::get_if<glm::vec4>(&value)) {
+            error = set_uniform(name, *valueptr);
         } else if (auto valueptr = std::get_if<glm::mat4>(&value)) {
             error = set_uniform(name, *valueptr);
         } else {
@@ -177,6 +179,10 @@ Error Shader::set_uniform(const std::string &name, float r, float g, float b, fl
 
 Error Shader::set_uniform(const std::string &name, const glm::vec3 &vector) {
     return set_uniform(name, vector.r, vector.g, vector.b);
+}
+
+Error Shader::set_uniform(const std::string &name, const glm::vec4 &vector) {
+    return set_uniform(name, vector.r, vector.g, vector.b, vector.a);
 }
 
 Error Shader::set_uniform(const std::string &name, const glm::mat4 &matrix) {

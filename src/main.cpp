@@ -138,9 +138,21 @@ Error run(int argc, char *argv[]) {
 
     glm::vec3 origin = {0.0f, 0.0f, 0.0f};
     glm::vec3 ux {1.0f, 0.0f, 0.0f}, uy {0.0f, 1.0f, 0.0f}, uz {0.0f, 0.0f, 1.0f};
-    glm::vec3 cube_position = {0.0f, 0.0f, 0.0f};
 
-    Vertices cube_vertices = cube(cube_position, ux, uy, uz, 1.0f);
+    std::vector<glm::vec3> cube_positions = {
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(2.0f, 5.0f, -15.0f),
+        glm::vec3(-1.5f, -2.2f, -2.5f),
+        glm::vec3(-3.8f, -2.0f, -12.3f),
+        glm::vec3(2.4f, -0.4f, -3.5f),
+        glm::vec3(-1.7f, 3.0f, -7.5f),
+        glm::vec3(1.3f, -2.0f, -2.5f),
+        glm::vec3(1.5f, 2.0f, -2.5f),
+        glm::vec3(1.5f, 0.2f, -1.5f),
+        glm::vec3(-1.3f, 1.0f, -1.5f),
+    };
+
+    Vertices cube_vertices = cube(cube_positions[0], ux, uy, uz, 1.0f);
     IndexBuffer ib         = {quad_indices(cube_vertices)};
     VertexBuffer vb        = {std::move(cube_vertices)};
     VertexArray va         = {vb};
@@ -192,18 +204,6 @@ Error run(int argc, char *argv[]) {
         return wrap(texture_specular_error);
     }
 
-    auto [texture_emissive, texture_emissive_error] = Texture::from_file(cwd / "res/matrix.jpg",
-        GL_TEXTURE2,
-        {
-            {GL_TEXTURE_WRAP_S, GL_REPEAT},
-            {GL_TEXTURE_WRAP_T, GL_REPEAT},
-            {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
-            {GL_TEXTURE_MAG_FILTER, GL_LINEAR},
-        });
-    if (texture_emissive_error.has_value()) {
-        return wrap(texture_emissive_error);
-    }
-
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (! glfwWindowShouldClose(window)) {
         control.process_input(window);
@@ -216,54 +216,63 @@ Error run(int argc, char *argv[]) {
         control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
-        glm::vec3 light_position {orbit(3.0f, 0.1f * now)}, light_color {1.0f, 1.0f, 1.0f};
+        glm::vec3 light_color {1.0f, 1.0f, 1.0f};
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), cube_position);
-        if (error = draw(Primitive::TRIANGLES,
-                va,
-                ib,
-                shader,
-                {
-                    {"u_model", model},
-                    {"u_ti_model", glm::transpose(glm::inverse(model))},
-                    {"u_view", camera.view()},
-                    {"u_projection", projection},
-                    {"u_view_position", camera.position()},
+        for (size_t i = 0; i < cube_positions.size(); ++i) {
+            const auto &cube_position = cube_positions[i];
+            glm::mat4 model =
+                glm::rotate(glm::translate(glm::mat4(1.0f), cube_position), i * pi / 8.0f, glm::vec3(1.0f, 0.3f, 0.5f));
+            if (error = draw(Primitive::TRIANGLES,
+                    va,
+                    ib,
+                    shader,
+                    {
+                        {"u_model", model},
+                        {"u_ti_model", glm::transpose(glm::inverse(model))},
+                        {"u_view", camera.view()},
+                        {"u_projection", projection},
+                        {"u_view_position", camera.position()},
 
-                    {"u_material.shininess", 32.0f},
+                        {"u_material.shininess", 32.0f},
 
-                    {"u_light.position", light_position},
-                    {"u_light.ambient", 0.2f * light_color},
-                    {"u_light.diffuse", 0.5f * light_color},
-                    {"u_light.specular", light_color},
+                        {"u_light.position", glm::vec4(camera.position(), 1.0f)},
+                        {"u_light.direction", camera.front()},
+                        {"u_light.cut_off", std::cos(glm::radians(12.5f))},
+                        {"u_light.outer_cut_off", std::cos(glm::radians(17.5f))},
 
-                    {"u_tex_t_offset", 0.1f * now},
-                },
-                {{
-                    {"u_material.diffuse", texture_container},
-                    {"u_material.specular", texture_specular},
-                    {"u_material.emissive", texture_emissive},
-                }});
-            error.has_value()) {
-            return wrap(error);
+                        {"u_light.ambient", 0.2f * light_color},
+                        {"u_light.diffuse", 0.5f * light_color},
+                        {"u_light.specular", light_color},
+
+                        {"u_light.constant", 1.0f},
+                        {"u_light.linear", 0.09f},
+                        {"u_light.quadratic", 0.032f},
+                    },
+                    {{
+                        {"u_material.diffuse", texture_container},
+                        {"u_material.specular", texture_specular},
+                    }});
+                error.has_value()) {
+                return wrap(error);
+            }
         }
 
-        if (error = draw(Primitive::TRIANGLES,
-                va_lights,
-                ib,
-                shader_light,
-                {
-                    {"u_model", glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f))},
-                    {"u_view", camera.view()},
-                    {"u_projection", projection},
-                    {"u_light_color", light_color},
-                    {"u_object_color", light_color},
-                });
-            error.has_value()) {
-            return wrap(error);
-        }
+        // if (error = draw(Primitive::TRIANGLES,
+        //         va_lights,
+        //         ib,
+        //         shader_light,
+        //         {
+        //             {"u_model", glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f))},
+        //             {"u_view", camera.view()},
+        //             {"u_projection", projection},
+        //             {"u_light_color", light_color},
+        //             {"u_object_color", light_color},
+        //         });
+        //     error.has_value()) {
+        //     return wrap(error);
+        // }
 
         if (error = draw(Primitive::LINES,
                 va_lines,
