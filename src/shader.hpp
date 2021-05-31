@@ -11,7 +11,24 @@
 
 using f3      = std::tuple<float, float, float>;
 using f4      = std::tuple<float, float, float, float>;
-using Uniform = std::pair<std::string, std::variant<int, float, f3, f4, glm::vec3, glm::vec4, glm::mat4>>;
+using Uniform = std::pair<std::string, std::variant<bool, int, float, f3, f4, glm::vec3, glm::vec4, glm::mat4>>;
+
+struct Light {
+    glm::vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    bool is_directional = false;
+    glm::vec3 direction = {0.0f, 0.0f, 0.0f};
+    float cut_off       = 0.0f;
+    float outer_cut_off = 0.0f;
+
+    glm::vec3 ambient  = {1.0f, 1.0f, 1.0f};
+    glm::vec3 diffuse  = {1.0f, 1.0f, 1.0f};
+    glm::vec3 specular = {1.0f, 1.0f, 1.0f};
+
+    float constant  = 1.0f;
+    float linear    = 0.0f;
+    float quadratic = 0.0f;
+};
 
 class Shader {
   public:
@@ -22,8 +39,11 @@ class Shader {
     void bind() const;
     void unbind() const;
 
+    Error set_lights(const std::string &name, const std::vector<Light> &lights);
+
     Error set_uniforms(const std::vector<Uniform> &uniforms);
 
+    Error set_uniform(const std::string &name, bool);
     Error set_uniform(const std::string &name, int);
     Error set_uniform(const std::string &name, float);
     Error set_uniform(const std::string &name, float, float, float);

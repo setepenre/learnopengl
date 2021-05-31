@@ -111,10 +111,46 @@ Shader::~Shader() {
 void Shader::bind() const { glUseProgram(m_ID); }
 void Shader::unbind() const { glUseProgram(0); }
 
+template <typename T> std::vector<T> &insert(std::vector<T> &v, std::vector<T> &&other) {
+    v.insert(v.end(), other.begin(), other.end());
+    return v;
+}
+
+Error Shader::set_lights(const std::string &name, const std::vector<Light> &lights) {
+    std::vector<Uniform> uniforms;
+    for (size_t i = 0; i < lights.size(); ++i) {
+        std::ostringstream oss;
+        oss << name << "[" << i << "]"
+            << ".";
+
+        const Light &light = lights[i];
+        uniforms           = insert(uniforms,
+            {
+                {oss.str() + "position", light.position},
+
+                {oss.str() + "is_directional", light.is_directional},
+                {oss.str() + "direction", light.direction},
+                {oss.str() + "cut_off", light.cut_off},
+                {oss.str() + "outer_cut_off", light.outer_cut_off},
+
+                {oss.str() + "ambient", light.ambient},
+                {oss.str() + "diffuse", light.diffuse},
+                {oss.str() + "specular", light.specular},
+
+                {oss.str() + "constant", light.constant},
+                {oss.str() + "linear", light.linear},
+                {oss.str() + "quadratic", light.quadratic},
+            });
+    }
+    return set_uniforms(uniforms);
+}
+
 Error Shader::set_uniforms(const std::vector<Uniform> &uniforms) {
     for (auto [name, value] : uniforms) {
         Error error = {};
-        if (auto valueptr = std::get_if<int>(&value)) {
+        if (auto valueptr = std::get_if<bool>(&value)) {
+            error = set_uniform(name, *valueptr);
+        } else if (auto valueptr = std::get_if<int>(&value)) {
             error = set_uniform(name, *valueptr);
         } else if (auto valueptr = std::get_if<float>(&value)) {
             error = set_uniform(name, *valueptr);
@@ -138,6 +174,15 @@ Error Shader::set_uniforms(const std::vector<Uniform> &uniforms) {
             return wrap(error);
         }
     }
+    return {};
+}
+
+Error Shader::set_uniform(const std::string &name, bool value) {
+    auto [location, error] = get_uniform_location(name);
+    if (error.has_value()) {
+        return wrap(error);
+    }
+    glUniform1i(location, value);
     return {};
 }
 

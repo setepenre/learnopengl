@@ -62,7 +62,8 @@ std::pair<std::tuple<int, int>, Error> from_args(int argc, char *argv[]) {
 enum Primitive { LINES = GL_LINES, TRIANGLES = GL_TRIANGLES };
 Error draw(Primitive primitive, const VertexArray &va, const IndexBuffer &ib, Shader &shader,
     const std::vector<Uniform> &uniforms,
-    const std::optional<std::vector<std::pair<std::string, Texture>>> &textures = {}) {
+    const std::optional<std::vector<std::pair<std::string, Texture>>> &textures = {},
+    const std::vector<Light> &lights                                            = {}) {
     va.bind();
     ib.bind();
     shader.bind();
@@ -80,6 +81,10 @@ Error draw(Primitive primitive, const VertexArray &va, const IndexBuffer &ib, Sh
     }
 
     if (Error error = shader.set_uniforms(uniforms); error.has_value()) {
+        return error;
+    }
+
+    if (Error error = shader.set_lights("u_lights", lights); error.has_value()) {
         return error;
     }
 
@@ -116,6 +121,7 @@ Error run(int argc, char *argv[]) {
     control.last = 0.5f * glm::vec2(w, h);
 
     glfwSetFramebufferSizeCallback(window, viewport_resize);
+    glfwSetKeyCallback(window, Control::process_input);
     glfwSetCursorPosCallback(window, Control::mouse);
     glfwSetScrollCallback(window, Control::scroll);
 
@@ -206,17 +212,54 @@ Error run(int argc, char *argv[]) {
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (! glfwWindowShouldClose(window)) {
-        control.process_input(window);
-
         float now = glfwGetTime();
         delta_t   = now - previous;
         previous  = now;
 
         camera.position(camera.position() + 5.0f * control.movement_direction() * delta_t);
-        control.movement_direction({0.0f, 0.0f, 0.0f});
         glm::mat4 projection = glm::perspective(camera.fov(), (float) w / (float) h, 0.1f, 100.f);
 
-        glm::vec3 light_color {1.0f, 1.0f, 1.0f};
+        glm::vec3 white                                          = glm::vec3(1.0f);
+        std::vector<std::pair<glm::vec3, glm::vec3>> lights_data = {
+            {{0.7f, 0.2f, 2.0f}, white},
+            {{2.3f, -3.3f, -4.0f}, glm::vec3(1.0f, 0.0f, 0.0f)},
+            {{-4.0f, 2.0f, -12.0f}, glm::vec3(0.0f, 1.0f, 0.0f)},
+            {{0.0f, 0.0f, -3.0f}, glm::vec3(0.0f, 0.0f, 1.0f)},
+        };
+
+        Light flashlight = {
+            glm::vec4(camera.position(), 1.0f),
+            true,
+            camera.front(),
+            std::cos(glm::radians(12.5f)),
+            std::cos(glm::radians(17.5f)),
+            0.0f * white,
+            0.5f * white,
+            white,
+            1.0f,
+            0.09f,
+            0.032f,
+        };
+
+        int nlights               = std::min(control.light_count(), (int) lights_data.size());
+        std::vector<Light> lights = {};
+        std::vector<std::pair<glm::vec3, glm::vec3>> visible_lights = {};
+        for (int i = 0; i < nlights; ++i) {
+            auto [light_position, light_color] = lights_data[i];
+            lights.push_back({
+                .position  = glm::vec4(light_position, 1.0f),
+                .ambient   = 0.2f * light_color,
+                .diffuse   = 0.5f * light_color,
+                .specular  = light_color,
+                .linear    = 0.09f,
+                .quadratic = 0.032f,
+            });
+            visible_lights.push_back({light_position, light_color});
+        };
+        if (control.flashlight()) {
+            lights.push_back(flashlight);
+            nlights += 1;
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -235,44 +278,36 @@ Error run(int argc, char *argv[]) {
                         {"u_projection", projection},
                         {"u_view_position", camera.position()},
 
-                        {"u_material.shininess", 32.0f},
+                        {"u_material.color", glm::vec4(1.0f, 0.5f, 0.0f, 0.0f)},
+                        {"u_material.shininess", 64.0f},
 
-                        {"u_light.position", glm::vec4(camera.position(), 1.0f)},
-                        {"u_light.direction", camera.front()},
-                        {"u_light.cut_off", std::cos(glm::radians(12.5f))},
-                        {"u_light.outer_cut_off", std::cos(glm::radians(17.5f))},
-
-                        {"u_light.ambient", 0.2f * light_color},
-                        {"u_light.diffuse", 0.5f * light_color},
-                        {"u_light.specular", light_color},
-
-                        {"u_light.constant", 1.0f},
-                        {"u_light.linear", 0.09f},
-                        {"u_light.quadratic", 0.032f},
+                        {"u_nlights", std::min(nlights, 8)},
                     },
                     {{
                         {"u_material.diffuse", texture_container},
                         {"u_material.specular", texture_specular},
-                    }});
+                    }},
+                    lights);
                 error.has_value()) {
                 return wrap(error);
             }
         }
 
-        // if (error = draw(Primitive::TRIANGLES,
-        //         va_lights,
-        //         ib,
-        //         shader_light,
-        //         {
-        //             {"u_model", glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f))},
-        //             {"u_view", camera.view()},
-        //             {"u_projection", projection},
-        //             {"u_light_color", light_color},
-        //             {"u_object_color", light_color},
-        //         });
-        //     error.has_value()) {
-        //     return wrap(error);
-        // }
+        for (auto [light_position, light_color] : visible_lights) {
+            if (error = draw(Primitive::TRIANGLES,
+                    va_lights,
+                    ib,
+                    shader_light,
+                    {
+                        {"u_model", glm::scale(glm::translate(glm::mat4(1.0f), light_position), glm::vec3(0.2f))},
+                        {"u_view", camera.view()},
+                        {"u_projection", projection},
+                        {"u_light_color", light_color},
+                    });
+                error.has_value()) {
+                return wrap(error);
+            }
+        }
 
         if (error = draw(Primitive::LINES,
                 va_lines,

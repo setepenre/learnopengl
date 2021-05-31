@@ -1,6 +1,7 @@
 #include "control.hpp"
 
 #include <algorithm>
+#include <map>
 
 Control *Control::control = nullptr;
 
@@ -15,12 +16,14 @@ Control *Control::instance(Camera &camera) {
     return control;
 }
 
-void Control::process_input(GLFWwindow *window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+void Control::process_input(GLFWwindow *window, int key, int, int action, int) {
+    assert(control);
+
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+    if (key == GLFW_KEY_T && action == GLFW_PRESS) {
         int mode = 0;
 
         glGetIntegerv(GL_POLYGON_MODE, &mode);
@@ -31,28 +34,41 @@ void Control::process_input(GLFWwindow *window) {
         }
     }
 
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE) {
-        m_pause = ! m_pause;
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        control->m_flashlight = ! control->m_flashlight;
     }
 
-    glm::vec3 acc = {0.0f, 0.0f, 0.0f};
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        acc += m_camera.front();
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        control->m_pause = ! control->m_pause;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        acc -= m_camera.front();
+    if (key == GLFW_KEY_N && action == GLFW_PRESS) {
+        control->m_light_count = std::min(control->light_count() + 1, 8);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        acc -= glm::normalize(glm::cross(m_camera.front(), m_camera.up()));
+    if (key == GLFW_KEY_M && action == GLFW_PRESS) {
+        control->m_light_count = std::max(control->light_count() - 1, 0);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        acc += glm::normalize(glm::cross(m_camera.front(), m_camera.up()));
+    glm::vec3 ez = control->m_camera.front(),
+              ex = glm::normalize(glm::cross(control->m_camera.front(), control->m_camera.up()));
+
+    static std::map<int, int> actions = {{GLFW_PRESS, 1}, {GLFW_REPEAT, 1}, {GLFW_RELEASE, 0}};
+    static std::map<int, int> keys    = {
+        {GLFW_KEY_W, 0},
+        {GLFW_KEY_S, 1},
+        {GLFW_KEY_A, 2},
+        {GLFW_KEY_D, 3},
+    };
+
+    if (keys.contains(key) && actions.contains(action)) {
+        control->m_wsad[keys[key]] = actions[action];
     }
 
-    m_movement_direction = glm::length(acc) ? glm::normalize(acc) : acc;
+    glm::vec3 acc = (1.0f * control->m_wsad[0] - 1.0f * control->m_wsad[1]) * ez +
+                    (-1.0f * control->m_wsad[2] + control->m_wsad[3]) * ex;
+
+    control->m_movement_direction = glm::length(acc) ? glm::normalize(acc) : acc;
 }
 
 void Control::mouse(GLFWwindow *, double pos_x, double pos_y) {
